@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
-import { CalendarIcon, Clock, Check, ChevronsUpDown, Search } from "lucide-react"
+import { CalendarIcon, Clock, Check, ChevronsUpDown, Search, Mail } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
@@ -78,6 +78,7 @@ function formatWorkingTime(minutes: number): string {
 
 export default function OvertimeForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [selectedTeacherEmail, setSelectedTeacherEmail] = useState<string | null>(null)
 
   // フォームの初期化
   const form = useForm<z.infer<typeof formSchema>>({
@@ -91,13 +92,24 @@ export default function OvertimeForm() {
     },
   })
 
+  // 教員名が変更されたときにメールアドレスを更新
+  const handleTeacherChange = (value: string) => {
+    const selectedTeacher = teachers.find(teacher => teacher.name === value)
+    if (selectedTeacher) {
+      setSelectedTeacherEmail(selectedTeacher.email)
+    } else {
+      setSelectedTeacherEmail(null)
+    }
+    form.setValue("teacherName", value)
+  }
+
   // フォーム送信処理
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true)
 
     try {
       // Google Apps ScriptウェブアプリのURL - 実際のURLに置き換えてください
-      const apiUrl = "https://script.google.com/macros/s/AKfycbyG4MqX4gJ7rnaFMG8RP4t3VG4UNddx7bOoz2iBYMxNHVkqRAk0a9yWmMMZksgHhs9w/exec";
+      const apiUrl = "https://script.google.com/macros/s/AKfycbwrLJaDQ-upbaT17vPuhqcyUjzK_nL7svVErfPA591sbBpTD9p0-vzrQupQt8dYzk-4cg/exec";
       
       // データを整形
       const dateFormatted = format(values.activityDate, "yyyy/MM/dd");
@@ -110,8 +122,16 @@ export default function OvertimeForm() {
       const totalMinutes = endMinutes - startMinutes;
       const hourCount = (totalMinutes / 60).toFixed(1);
       
+      // 教員のメールアドレスを取得
+      const selectedTeacher = teachers.find(teacher => teacher.name === values.teacherName);
+      const teacherEmail = selectedTeacher?.email || "";
+      
+      console.log("選択された教員:", selectedTeacher);
+      console.log("メールアドレス:", teacherEmail);
+      
       const formData = {
         teacherName: values.teacherName,
+        teacherEmail: teacherEmail,
         date: dateFormatted,
         startTime: values.startTime,
         endTime: values.endTime,
@@ -197,7 +217,7 @@ export default function OvertimeForm() {
                 render={({ field }) => (
                   <FormItem className="transition-all duration-200 hover:translate-y-[-2px]">
                     <FormLabel className="text-foreground/90 font-medium">教員名</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={handleTeacherChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger className="rounded-lg border-input focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200">
                           <SelectValue placeholder="教員を選択してください" />
@@ -205,18 +225,24 @@ export default function OvertimeForm() {
                       </FormControl>
                       <SelectContent className="max-h-[300px] overflow-auto bg-white/80 backdrop-blur-sm rounded-lg">
                         <SelectGroup>
-                          {teachers.map((teacher) => (
+                          {teachers.map((teacher, index) => (
                             <SelectItem 
                               key={teacher.id} 
                               value={teacher.name}
                               className="cursor-pointer hover:bg-accent/20 transition-colors"
                             >
-                              {teacher.name}
+                              {`${index + 1}. ${teacher.name}`}
                             </SelectItem>
                           ))}
                         </SelectGroup>
                       </SelectContent>
                     </Select>
+                    {selectedTeacherEmail && (
+                      <div className="mt-2 text-sm flex items-center text-muted-foreground">
+                        <Mail className="h-4 w-4 mr-1" />
+                        <span>{selectedTeacherEmail}</span>
+                      </div>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}

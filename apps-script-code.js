@@ -319,28 +319,33 @@ function addControlButtons() {
  * ボタン追加のヘルパー関数
  */
 function addButton(sheet, buttonText, functionName, width, height, left, top) {
-  const button = sheet.insertDrawingNew();
-  button.setPosition(top, left, 0, 0)
-        .setSize(width, height)
-        .assignScript(functionName);
-  
-  // ボタンのUIを設定
-  const fillColor = '#4285F4'; // Googleブルー
-  const builder = button.build();
-  builder.addLine()
-    .setLineColor('#FFFFFF')
-    .setLineWidth(1)
-    .setLinearGradient('#E8EAED', '#DADCE0', 45); // ライトグレーのグラデーション
-  
-  builder.addTextBox()
-    .setText(buttonText)
-    .setFontSize(10)
-    .setFontColor('#202124')
-    .setHorizontalAlignment('CENTER')
-    .setVerticalAlignment('MIDDLE')
-    .setBold(true);
-  
-  button.setShape(builder.build());
+  try {
+    const button = sheet.insertDrawingNew();
+    button.setPosition(top, left, 0, 0)
+          .setSize(width, height)
+          .assignScript(functionName);
+    
+    // シンプルな描画APIでボタンを作成
+    const shape = button.build();
+    shape.setFillColor('#E8EAED');  // 背景色の設定
+    
+    // テキストボックスを追加
+    shape.addTextBox()
+         .setText(buttonText)
+         .setFontSize(10)
+         .setFontFamily('Arial')
+         .setFontColor('#202124')
+         .setHorizontalAlignment('CENTER')
+         .setVerticalAlignment('MIDDLE')
+         .setBold(true);
+    
+    button.setShape(shape.build());
+    
+    Logger.log(`ボタン「${buttonText}」を追加しました`);
+  } catch (error) {
+    Logger.log(`ボタン「${buttonText}」の追加中にエラーが発生しました: ${error.toString()}`);
+    // エラーが発生しても処理を続行
+  }
 }
 
 /**
@@ -479,151 +484,183 @@ function getSheetById(sheetId) {
  * 教員別の集計シートを作成する関数
  */
 function createTeacherSummary() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const activeSheet = ss.getActiveSheet();
-  const sheetName = activeSheet.getName();
-  
-  // 申請期間シートかどうかを判定
-  if (!/^\d{4}年\d{1,2}月\d{1,2}日 - \d{4}年\d{1,2}月\d{1,2}日$/.test(sheetName)) {
-    SpreadsheetApp.getUi().alert('申請期間シートを選択してください。\n（例：2023年10月22日 - 2023年11月21日）');
-    return;
-  }
-  
-  // データを取得
-  const data = activeSheet.getDataRange().getValues();
-  if (data.length <= 1) {
-    SpreadsheetApp.getUi().alert('集計するデータがありません。');
-    return;
-  }
-  
-  const headers = data[0];
-  const rows = data.slice(1);
-  
-  // 必要な列のインデックスを取得
-  const teacherColIndex = headers.indexOf('教員名');
-  const clubColIndex = headers.indexOf('クラブ名');
-  const dateColIndex = headers.indexOf('活動日');
-  const workingTimeColIndex = headers.indexOf('勤務時間（分）');
-  
-  if (teacherColIndex === -1 || clubColIndex === -1 || workingTimeColIndex === -1) {
-    SpreadsheetApp.getUi().alert('必要な列（教員名、クラブ名、勤務時間）が見つかりません。');
-    return;
-  }
-  
-  // 教員別に集計
-  const teacherSummary = {};
-  rows.forEach(row => {
-    const teacher = row[teacherColIndex];
-    const club = row[clubColIndex];
-    const workingTime = parseInt(row[workingTimeColIndex], 10) || 0;
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const activeSheet = ss.getActiveSheet();
+    const sheetName = activeSheet.getName();
     
-    if (!teacherSummary[teacher]) {
-      teacherSummary[teacher] = {
-        totalTime: 0,
-        applications: 0,
-        clubs: new Set(),
-        clubDetails: {}
-      };
+    // 申請期間シートかどうかを判定
+    if (!/^\d{4}年\d{1,2}月\d{1,2}日 - \d{4}年\d{1,2}月\d{1,2}日$/.test(sheetName)) {
+      SpreadsheetApp.getUi().alert('申請期間シートを選択してください。\n（例：2023年10月22日 - 2023年11月21日）');
+      return;
     }
     
-    teacherSummary[teacher].totalTime += workingTime;
-    teacherSummary[teacher].applications++;
-    teacherSummary[teacher].clubs.add(club);
-    
-    // クラブごとの詳細も集計
-    if (!teacherSummary[teacher].clubDetails[club]) {
-      teacherSummary[teacher].clubDetails[club] = {
-        applications: 0,
-        totalTime: 0
-      };
+    // データを取得
+    const data = activeSheet.getDataRange().getValues();
+    if (data.length <= 1) {
+      SpreadsheetApp.getUi().alert('集計するデータがありません。');
+      return;
     }
-    teacherSummary[teacher].clubDetails[club].applications++;
-    teacherSummary[teacher].clubDetails[club].totalTime += workingTime;
-  });
-  
-  // 集計シートの名前
-  const summarySheetName = `${sheetName} 教員別集計`;
-  
-  // 既存の集計シートを削除
-  let summarySheet = ss.getSheetByName(summarySheetName);
-  if (summarySheet) {
-    ss.deleteSheet(summarySheet);
-  }
-  
-  // 新しい集計シートを作成
-  summarySheet = ss.insertSheet(summarySheetName);
-  
-  // ヘッダーを設定
-  summarySheet.getRange('A1:F1').setValues([['教員名', '申請回数', '合計勤務時間', '平均勤務時間（分/回）', '担当クラブ数', '詳細']]);
-  summarySheet.getRange('A1:F1').setFontWeight('bold').setBackground('#f3f3f3');
-  
-  // 集計データを入力
-  const summaryData = [];
-  Object.keys(teacherSummary).sort().forEach(teacher => {
-    const summary = teacherSummary[teacher];
-    const avgTime = Math.round(summary.totalTime / summary.applications);
     
-    // クラブごとの詳細を文字列化
-    const clubDetailStrs = [];
-    Object.keys(summary.clubDetails).sort().forEach(club => {
-      const detail = summary.clubDetails[club];
-      clubDetailStrs.push(`${club}: ${detail.applications}回, ${detail.totalTime}分`);
+    const headers = data[0];
+    const rows = data.slice(1);
+    
+    // 必要な列のインデックスを取得
+    const teacherColIndex = headers.indexOf('教員名');
+    const clubColIndex = headers.indexOf('クラブ名');
+    const dateColIndex = headers.indexOf('活動日');
+    const workingTimeColIndex = headers.indexOf('勤務時間（分）');
+    
+    if (teacherColIndex === -1 || clubColIndex === -1 || workingTimeColIndex === -1) {
+      SpreadsheetApp.getUi().alert('必要な列（教員名、クラブ名、勤務時間）が見つかりません。');
+      Logger.log('見つかった列: ' + headers.join(', '));
+      return;
+    }
+    
+    // 教員別に集計
+    const teacherSummary = {};
+    rows.forEach((row, index) => {
+      try {
+        const teacher = row[teacherColIndex];
+        const club = row[clubColIndex];
+        const workingTime = parseInt(row[workingTimeColIndex], 10) || 0;
+        
+        if (!teacher) {
+          Logger.log(`行 ${index + 2}: 教員名がありません`);
+          return; // この行はスキップ
+        }
+        
+        if (!teacherSummary[teacher]) {
+          teacherSummary[teacher] = {
+            totalTime: 0,
+            applications: 0,
+            clubs: new Set(),
+            clubDetails: {}
+          };
+        }
+        
+        teacherSummary[teacher].totalTime += workingTime;
+        teacherSummary[teacher].applications++;
+        teacherSummary[teacher].clubs.add(club || '未指定');
+        
+        // クラブごとの詳細も集計
+        const clubName = club || '未指定';
+        if (!teacherSummary[teacher].clubDetails[clubName]) {
+          teacherSummary[teacher].clubDetails[clubName] = {
+            applications: 0,
+            totalTime: 0
+          };
+        }
+        teacherSummary[teacher].clubDetails[clubName].applications++;
+        teacherSummary[teacher].clubDetails[clubName].totalTime += workingTime;
+      } catch (rowError) {
+        Logger.log(`行 ${index + 2} の処理中にエラー: ${rowError.toString()}`);
+        // 1行のエラーで全体が止まらないようにする
+      }
     });
     
-    summaryData.push([
-      teacher,
-      summary.applications,
-      summary.totalTime,
-      avgTime,
-      summary.clubs.size,
-      clubDetailStrs.join('\n')
-    ]);
-  });
-  
-  if (summaryData.length > 0) {
-    summarySheet.getRange(2, 1, summaryData.length, 6).setValues(summaryData);
+    // 教員データが集計できなかった場合
+    if (Object.keys(teacherSummary).length === 0) {
+      SpreadsheetApp.getUi().alert('教員データを集計できませんでした。データを確認してください。');
+      return;
+    }
+    
+    // 集計シートの名前
+    const summarySheetName = `${sheetName} 教員別集計`;
+    
+    // 既存の集計シートを削除
+    let summarySheet = ss.getSheetByName(summarySheetName);
+    if (summarySheet) {
+      ss.deleteSheet(summarySheet);
+    }
+    
+    // 新しい集計シートを作成
+    summarySheet = ss.insertSheet(summarySheetName);
+    
+    // ヘッダーを設定
+    summarySheet.getRange('A1:F1').setValues([['教員名', '申請回数', '合計勤務時間', '平均勤務時間（分/回）', '担当クラブ数', '詳細']]);
+    summarySheet.getRange('A1:F1').setFontWeight('bold').setBackground('#f3f3f3');
+    
+    // 集計データを入力
+    const summaryData = [];
+    Object.keys(teacherSummary).sort().forEach(teacher => {
+      const summary = teacherSummary[teacher];
+      const avgTime = Math.round(summary.totalTime / summary.applications);
+      
+      // クラブごとの詳細を文字列化
+      const clubDetailStrs = [];
+      Object.keys(summary.clubDetails).sort().forEach(club => {
+        const detail = summary.clubDetails[club];
+        clubDetailStrs.push(`${club}: ${detail.applications}回, ${detail.totalTime}分`);
+      });
+      
+      summaryData.push([
+        teacher,
+        summary.applications,
+        summary.totalTime,
+        avgTime,
+        summary.clubs.size,
+        clubDetailStrs.join('\n')
+      ]);
+    });
+    
+    if (summaryData.length > 0) {
+      summarySheet.getRange(2, 1, summaryData.length, 6).setValues(summaryData);
+    }
+    
+    // シート整形
+    summarySheet.autoResizeColumns(1, 6);
+    summarySheet.setColumnWidth(6, 300); // 詳細列は幅広く
+    
+    // 合計行を追加
+    const totalApplications = rows.length;
+    const totalTime = Object.values(teacherSummary).reduce((sum, t) => sum + t.totalTime, 0);
+    const avgTotalTime = totalApplications > 0 ? Math.round(totalTime / totalApplications) : 0;
+    
+    const totalRow = [
+      '合計',
+      totalApplications,
+      totalTime,
+      avgTotalTime,
+      new Set(rows.map(r => r[clubColIndex] || '未指定')).size,
+      ''
+    ];
+    
+    summarySheet.getRange(summaryData.length + 2, 1, 1, 6).setValues([totalRow]);
+    summarySheet.getRange(summaryData.length + 2, 1, 1, 6).setFontWeight('bold').setBackground('#e6f2ff');
+    
+    SpreadsheetApp.getUi().alert('教員別集計シートを作成しました。');
+    ss.setActiveSheet(summarySheet);
+  } catch (error) {
+    Logger.log('教員別集計の作成中にエラーが発生しました: ' + error.toString());
+    SpreadsheetApp.getUi().alert('教員別集計の作成中にエラーが発生しました: ' + error.toString() + '\n\nスプレッドシートのデータ形式を確認してください。');
   }
-  
-  // シート整形
-  summarySheet.autoResizeColumns(1, 6);
-  summarySheet.setColumnWidth(6, 300); // 詳細列は幅広く
-  
-  // 合計行を追加
-  const totalRow = [
-    '合計',
-    rows.length,
-    Object.values(teacherSummary).reduce((sum, t) => sum + t.totalTime, 0),
-    Math.round(Object.values(teacherSummary).reduce((sum, t) => sum + t.totalTime, 0) / rows.length),
-    new Set(rows.map(r => r[clubColIndex])).size,
-    ''
-  ];
-  
-  summarySheet.getRange(summaryData.length + 2, 1, 1, 6).setValues([totalRow]);
-  summarySheet.getRange(summaryData.length + 2, 1, 1, 6).setFontWeight('bold').setBackground('#e6f2ff');
-  
-  SpreadsheetApp.getUi().alert('教員別集計シートを作成しました。');
-  ss.setActiveSheet(summarySheet);
 }
 
 /**
  * 教員別集計を表示する関数（ボタンから呼び出される）
  */
 function showTeacherSummary() {
-  const props = PropertiesService.getDocumentProperties();
-  const sheetId = parseInt(props.getProperty('activeSheetId'));
-  
-  if (!sheetId) {
-    SpreadsheetApp.getUi().alert('シート情報が見つかりません。\n操作ボタンを再度追加してください。');
-    return;
+  try {
+    const props = PropertiesService.getDocumentProperties();
+    const sheetId = parseInt(props.getProperty('activeSheetId'));
+    
+    if (!sheetId) {
+      SpreadsheetApp.getUi().alert('シート情報が見つかりません。\n操作ボタンを再度追加してください。');
+      return;
+    }
+    
+    const sheet = getSheetById(sheetId);
+    if (!sheet) {
+      SpreadsheetApp.getUi().alert('シートが見つかりません。');
+      return;
+    }
+    
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    ss.setActiveSheet(sheet);
+    createTeacherSummary();
+  } catch (error) {
+    Logger.log('教員別集計の表示中にエラーが発生しました: ' + error.toString());
+    SpreadsheetApp.getUi().alert('エラーが発生しました: ' + error.toString());
   }
-  
-  const sheet = getSheetById(sheetId);
-  if (!sheet) {
-    SpreadsheetApp.getUi().alert('シートが見つかりません。');
-    return;
-  }
-  
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  ss.setActiveSheet(sheet);
-  createTeacherSummary();
 } 
