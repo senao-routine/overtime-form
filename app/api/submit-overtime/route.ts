@@ -7,7 +7,7 @@ const GOOGLE_CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL || ""
 const GOOGLE_SHEET_ID = process.env.GOOGLE_SHEET_ID || ""
 
 // Webアプリとしてデプロイされたスクリプトのエンドポイントとアクセストークン
-const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL || "https://script.google.com/macros/s/AKfycbyT8Nww-MFWiDJMox5Hfxxe569_Q16DRdjRm8NP7Zbqp63liXiZWpnZ1Zvu9BXzkSxdxQ/exec"
+const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL || "https://script.google.com/macros/s/AKfycbwnB50xE0Y-EoiFym658O6r2GaZRV7CrXcH5285MomEX2XzvqCdE0KqWzEH--d4k60RNw/exec"
 const ACCESS_TOKEN = process.env.APPS_SCRIPT_ACCESS_TOKEN || "temporary_access_token_for_testing"
 
 // スプレッドシートの列名

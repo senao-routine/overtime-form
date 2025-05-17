@@ -109,7 +109,7 @@ export default function OvertimeForm() {
 
     try {
       // Google Apps ScriptウェブアプリのURL - 実際のURLに置き換えてください
-      const apiUrl = "https://script.google.com/macros/s/AKfycbwrLJaDQ-upbaT17vPuhqcyUjzK_nL7svVErfPA591sbBpTD9p0-vzrQupQt8dYzk-4cg/exec";
+      const apiUrl = "https://script.google.com/macros/s/AKfycbwL413hCnrooorP6qQEotOwJYGxRfLxZt_GevmVMaH_e_j_G5ywXE8f9wivG1hdJ11gnw/exec";
       
       // データを整形
       const dateFormatted = format(values.activityDate, "yyyy/MM/dd");
