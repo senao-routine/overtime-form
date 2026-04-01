@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
@@ -18,7 +18,10 @@ import { cn } from "@/lib/utils"
 import { toast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { teachers, clubs } from "@/lib/data/lists"
+import { teachers as fallbackTeachers, clubs as fallbackClubs } from "@/lib/data/lists"
+
+type Teacher = { id: string; name: string; email: string }
+type Club = { id: string; name: string }
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command"
 
 // 日付の範囲を取得する関数
@@ -79,6 +82,35 @@ function formatWorkingTime(minutes: number): string {
 export default function OvertimeForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedTeacherEmail, setSelectedTeacherEmail] = useState<string | null>(null)
+  const [teachers, setTeachers] = useState<Teacher[]>(fallbackTeachers)
+  const [clubs, setClubs] = useState<Club[]>(fallbackClubs)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxCg0j3ot5P4D56DU2t1UwpIwXg7W-gxEz2vYfP5xtV2oa2XvSwJUMDoWEOeQgYqudZJA/exec"
+
+    async function fetchMasterData() {
+      try {
+        const [teachersRes, clubsRes] = await Promise.all([
+          fetch(`${GAS_URL}?type=teachers`),
+          fetch(`${GAS_URL}?type=clubs`),
+        ])
+        if (teachersRes.ok) {
+          const data = await teachersRes.json()
+          if (data.length > 0) setTeachers(data)
+        }
+        if (clubsRes.ok) {
+          const data = await clubsRes.json()
+          if (data.length > 0) setClubs(data)
+        }
+      } catch (error) {
+        console.error("マスタデータ取得エラー:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchMasterData()
+  }, [])
 
   // フォームの初期化
   const form = useForm<z.infer<typeof formSchema>>({
@@ -109,7 +141,7 @@ export default function OvertimeForm() {
 
     try {
       // Google Apps ScriptウェブアプリのURL - 実際のURLに置き換えてください
-      const apiUrl = "https://script.google.com/macros/s/AKfycbwL413hCnrooorP6qQEotOwJYGxRfLxZt_GevmVMaH_e_j_G5ywXE8f9wivG1hdJ11gnw/exec";
+      const apiUrl = "https://script.google.com/macros/s/AKfycbxCg0j3ot5P4D56DU2t1UwpIwXg7W-gxEz2vYfP5xtV2oa2XvSwJUMDoWEOeQgYqudZJA/exec";
       
       // データを整形
       const dateFormatted = format(values.activityDate, "yyyy/MM/dd");
@@ -207,6 +239,9 @@ export default function OvertimeForm() {
 
   return (
     <>
+      {isLoading && (
+        <div className="text-center text-muted-foreground text-sm py-2">データを読み込み中...</div>
+      )}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           <div className="space-y-6">
