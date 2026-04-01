@@ -48,14 +48,22 @@ function getValidDateRange() {
 
 const { startDate, endDate } = getValidDateRange()
 
+// 申請種類の選択肢
+const applicationTypes = [
+  { id: "club", name: "クラブ指導" },
+  { id: "exam", name: "模試業務" },
+  { id: "recruit", name: "生徒募集イベント" },
+] as const
+
 // フォームのバリデーションスキーマ
 const formSchema = z.object({
+  applicationType: z.string().min(1, {
+    message: "申請種類を選択してください。",
+  }),
   teacherName: z.string().min(1, {
     message: "教員名を選択してください。",
   }),
-  clubName: z.string().min(1, {
-    message: "クラブ名を選択してください。",
-  }),
+  clubName: z.string().optional(),
   activityDate: z
     .date({
       required_error: "活動日を選択してください。",
@@ -87,7 +95,7 @@ export default function OvertimeForm() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxCg0j3ot5P4D56DU2t1UwpIwXg7W-gxEz2vYfP5xtV2oa2XvSwJUMDoWEOeQgYqudZJA/exec"
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxR21RCZBM7rLsS6f91VPpXwffPjw2l1Hqp0TznxImvyR2bLacVUxOqkRScbzX_0v-_Ag/exec"
 
     async function fetchMasterData() {
       try {
@@ -116,6 +124,7 @@ export default function OvertimeForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      applicationType: "",
       teacherName: "",
       clubName: "",
       startTime: "",
@@ -141,7 +150,7 @@ export default function OvertimeForm() {
 
     try {
       // Google Apps ScriptウェブアプリのURL - 実際のURLに置き換えてください
-      const apiUrl = "https://script.google.com/macros/s/AKfycbxCg0j3ot5P4D56DU2t1UwpIwXg7W-gxEz2vYfP5xtV2oa2XvSwJUMDoWEOeQgYqudZJA/exec";
+      const apiUrl = "https://script.google.com/macros/s/AKfycbxR21RCZBM7rLsS6f91VPpXwffPjw2l1Hqp0TznxImvyR2bLacVUxOqkRScbzX_0v-_Ag/exec";
       
       // データを整形
       const dateFormatted = format(values.activityDate, "yyyy/MM/dd");
@@ -161,14 +170,19 @@ export default function OvertimeForm() {
       console.log("選択された教員:", selectedTeacher);
       console.log("メールアドレス:", teacherEmail);
       
+      // 申請種類のラベルを取得
+      const appType = applicationTypes.find(t => t.id === values.applicationType);
+      const appTypeName = appType?.name || values.applicationType;
+
       const formData = {
+        applicationType: appTypeName,
         teacherName: values.teacherName,
         teacherEmail: teacherEmail,
         date: dateFormatted,
         startTime: values.startTime,
         endTime: values.endTime,
         hourCount: hourCount,
-        clubName: values.clubName,
+        clubName: values.applicationType === "club" ? values.clubName : "",
         reason: values.report || "特になし"
       };
 
@@ -245,6 +259,37 @@ export default function OvertimeForm() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           <div className="space-y-6">
+            <FormField
+              control={form.control}
+              name="applicationType"
+              render={({ field }) => (
+                <FormItem className="transition-all duration-200 hover:translate-y-[-2px]">
+                  <FormLabel className="text-foreground/90 font-medium">申請種類</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="rounded-lg border-input focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200">
+                        <SelectValue placeholder="申請種類を選択してください" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent className="bg-white/80 backdrop-blur-sm rounded-lg">
+                      <SelectGroup>
+                        {applicationTypes.map((type) => (
+                          <SelectItem
+                            key={type.id}
+                            value={type.id}
+                            className="cursor-pointer hover:bg-accent/20 transition-colors"
+                          >
+                            {type.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
@@ -283,55 +328,57 @@ export default function OvertimeForm() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="clubName"
-                render={({ field }) => (
-                  <FormItem className="transition-all duration-200 hover:translate-y-[-2px]">
-                    <FormLabel className="text-foreground/90 font-medium">クラブ名</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="rounded-lg border-input focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200">
-                          <SelectValue placeholder="クラブを選択してください" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent className="max-h-[300px] overflow-auto bg-white/80 backdrop-blur-sm rounded-lg">
-                        <SelectGroup>
-                          <SelectLabel className="px-2 py-1.5 text-sm font-semibold">高校</SelectLabel>
-                          {clubs
-                            .filter(club => club.name.startsWith("高:"))
-                            .map(club => (
-                              <SelectItem 
-                                key={club.id} 
-                                value={club.name}
-                                className="cursor-pointer hover:bg-accent/20 transition-colors"
-                              >
-                                {club.name}
-                              </SelectItem>
-                            ))
-                          }
-                        </SelectGroup>
-                        <SelectGroup>
-                          <SelectLabel className="px-2 py-1.5 text-sm font-semibold">中学校</SelectLabel>
-                          {clubs
-                            .filter(club => club.name.startsWith("中:"))
-                            .map(club => (
-                              <SelectItem 
-                                key={club.id} 
-                                value={club.name}
-                                className="cursor-pointer hover:bg-accent/20 transition-colors"
-                              >
-                                {club.name}
-                              </SelectItem>
-                            ))
-                          }
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {form.watch("applicationType") === "club" && (
+                <FormField
+                  control={form.control}
+                  name="clubName"
+                  render={({ field }) => (
+                    <FormItem className="transition-all duration-200 hover:translate-y-[-2px]">
+                      <FormLabel className="text-foreground/90 font-medium">クラブ名</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="rounded-lg border-input focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200">
+                            <SelectValue placeholder="クラブを選択してください" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="max-h-[300px] overflow-auto bg-white/80 backdrop-blur-sm rounded-lg">
+                          <SelectGroup>
+                            <SelectLabel className="px-2 py-1.5 text-sm font-semibold">高校</SelectLabel>
+                            {clubs
+                              .filter(club => club.name.startsWith("高:"))
+                              .map(club => (
+                                <SelectItem
+                                  key={club.id}
+                                  value={club.name}
+                                  className="cursor-pointer hover:bg-accent/20 transition-colors"
+                                >
+                                  {club.name}
+                                </SelectItem>
+                              ))
+                            }
+                          </SelectGroup>
+                          <SelectGroup>
+                            <SelectLabel className="px-2 py-1.5 text-sm font-semibold">中学校</SelectLabel>
+                            {clubs
+                              .filter(club => club.name.startsWith("中:"))
+                              .map(club => (
+                                <SelectItem
+                                  key={club.id}
+                                  value={club.name}
+                                  className="cursor-pointer hover:bg-accent/20 transition-colors"
+                                >
+                                  {club.name}
+                                </SelectItem>
+                              ))
+                            }
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
 
             <FormField
