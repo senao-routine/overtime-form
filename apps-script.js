@@ -383,7 +383,7 @@ function sendConfirmationEmail(info) {
 
 // Looker Studio統合シート列構成（17列）:
 // A:教員名 B:メールアドレス C:申請種類 D:期間 E:クラブ名
-// F:活動日 G:開始時間 H:終了時間 I:勤務時間 J:勤務分数 K:報告事項
+// F:活動日 G:開始時間 H:終了時間 I:勤務時間 J:勤務時間数 K:報告事項
 // L:校長 M:事務長 N:副校長 O:教頭 P:承認済み Q:最終更新
 
 /**
@@ -398,7 +398,7 @@ function updateLookerStudioSummary(period, data) {
 
     lookerSheet.appendRow([
       '教員名', 'メールアドレス', '申請種類', '期間', 'クラブ名',
-      '活動日', '開始時間', '終了時間', '勤務時間', '勤務分数', '報告事項',
+      '活動日', '開始時間', '終了時間', '勤務時間', '勤務時間数', '報告事項',
       '校長', '事務長', '副校長', '教頭', '承認済み', '最終更新'
     ]);
 
@@ -418,7 +418,7 @@ function updateLookerStudioSummary(period, data) {
     lookerSheet.setColumnWidth(7, 80);   // 開始時間
     lookerSheet.setColumnWidth(8, 80);   // 終了時間
     lookerSheet.setColumnWidth(9, 100);  // 勤務時間
-    lookerSheet.setColumnWidth(10, 80);  // 勤務分数
+    lookerSheet.setColumnWidth(10, 100); // 勤務時間数
     lookerSheet.setColumnWidth(11, 300); // 報告事項
     lookerSheet.setColumnWidth(12, 100); // 校長
     lookerSheet.setColumnWidth(13, 100); // 事務長
@@ -438,7 +438,7 @@ function updateLookerStudioSummary(period, data) {
     data.teacherName, data.teacherEmail,
     data.applicationType, period, data.clubName,
     Utilities.formatDate(data.activityDate, 'Asia/Tokyo', 'yyyy/MM/dd'),
-    data.startTime, data.endTime, workTimeFormatted, data.workMinutes, data.reason,
+    data.startTime, data.endTime, workTimeFormatted, Math.round(data.workMinutes / 60 * 10) / 10, data.reason,
     false, false, false, false, '',
     Utilities.formatDate(timestamp, 'Asia/Tokyo', 'yyyy/MM/dd HH:mm:ss')
   ];

@@ -95,7 +95,7 @@ export default function OvertimeForm() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxupXkTSeUj3F25t8JoxWykvHe3DnnUY--FAd5MNMCtApvAGCHzlGzfIVc86Eo-GNH3iA/exec"
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxSg9KYbkmcO6vlOR_flM-0xFuYdkMK4nask84P0-x9fRQCFnyctC2RH-UxQoHcR1vX/exec"
 
     async function fetchMasterData() {
       try {
@@ -163,7 +163,7 @@ export default function OvertimeForm() {
 
     try {
       // Google Apps ScriptウェブアプリのURL - 実際のURLに置き換えてください
-      const apiUrl = "https://script.google.com/macros/s/AKfycbxupXkTSeUj3F25t8JoxWykvHe3DnnUY--FAd5MNMCtApvAGCHzlGzfIVc86Eo-GNH3iA/exec";
+      const apiUrl = "https://script.google.com/macros/s/AKfycbxSg9KYbkmcO6vlOR_flM-0xFuYdkMK4nask84P0-x9fRQCFnyctC2RH-UxQoHcR1vX/exec";
 
       // データを整形
       const dateFormatted = format(values.activityDate, "yyyy/MM/dd");
