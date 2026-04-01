@@ -381,11 +381,10 @@ function sendConfirmationEmail(info) {
 // Looker Studio統合シート
 // ============================================================
 
-// Looker Studio統合シート列構成（15列）:
+// Looker Studio統合シート列構成（17列）:
 // A:教員名 B:メールアドレス C:申請種類 D:期間 E:クラブ名
-// F:活動日 G:開始時間 H:終了時間 I:勤務時間 J:報告事項
-// K:校長 L:事務長 M:副校長 N:教頭 O:承認済み P:最終更新
-// ※16列
+// F:活動日 G:開始時間 H:終了時間 I:勤務時間 J:勤務分数 K:報告事項
+// L:校長 M:事務長 N:副校長 O:教頭 P:承認済み Q:最終更新
 
 /**
  * Looker Studio統合シートにデータを追加する関数
@@ -399,11 +398,11 @@ function updateLookerStudioSummary(period, data) {
 
     lookerSheet.appendRow([
       '教員名', 'メールアドレス', '申請種類', '期間', 'クラブ名',
-      '活動日', '開始時間', '終了時間', '勤務時間', '報告事項',
+      '活動日', '開始時間', '終了時間', '勤務時間', '勤務分数', '報告事項',
       '校長', '事務長', '副校長', '教頭', '承認済み', '最終更新'
     ]);
 
-    const headerRange = lookerSheet.getRange(1, 1, 1, 16);
+    const headerRange = lookerSheet.getRange(1, 1, 1, 17);
     headerRange
       .setFontWeight('bold')
       .setBackground('#f3f3f3')
@@ -419,15 +418,16 @@ function updateLookerStudioSummary(period, data) {
     lookerSheet.setColumnWidth(7, 80);   // 開始時間
     lookerSheet.setColumnWidth(8, 80);   // 終了時間
     lookerSheet.setColumnWidth(9, 100);  // 勤務時間
-    lookerSheet.setColumnWidth(10, 300); // 報告事項
-    lookerSheet.setColumnWidth(11, 100); // 校長
-    lookerSheet.setColumnWidth(12, 100); // 事務長
-    lookerSheet.setColumnWidth(13, 100); // 副校長
-    lookerSheet.setColumnWidth(14, 100); // 教頭
-    lookerSheet.setColumnWidth(15, 100); // 承認済み
-    lookerSheet.setColumnWidth(16, 150); // 最終更新
+    lookerSheet.setColumnWidth(10, 80);  // 勤務分数
+    lookerSheet.setColumnWidth(11, 300); // 報告事項
+    lookerSheet.setColumnWidth(12, 100); // 校長
+    lookerSheet.setColumnWidth(13, 100); // 事務長
+    lookerSheet.setColumnWidth(14, 100); // 副校長
+    lookerSheet.setColumnWidth(15, 100); // 教頭
+    lookerSheet.setColumnWidth(16, 100); // 承認済み
+    lookerSheet.setColumnWidth(17, 150); // 最終更新
 
-    lookerSheet.getRange(1, 1, 1, 16).createFilter();
+    lookerSheet.getRange(1, 1, 1, 17).createFilter();
     lookerSheet.setFrozenRows(1);
   }
 
@@ -438,23 +438,23 @@ function updateLookerStudioSummary(period, data) {
     data.teacherName, data.teacherEmail,
     data.applicationType, period, data.clubName,
     Utilities.formatDate(data.activityDate, 'Asia/Tokyo', 'yyyy/MM/dd'),
-    data.startTime, data.endTime, workTimeFormatted, data.reason,
+    data.startTime, data.endTime, workTimeFormatted, data.workMinutes, data.reason,
     false, false, false, false, '',
     Utilities.formatDate(timestamp, 'Asia/Tokyo', 'yyyy/MM/dd HH:mm:ss')
   ];
 
   if (lookerSheet.getLastRow() > 1) {
     lookerSheet.insertRowBefore(2);
-    lookerSheet.getRange(2, 1, 1, 16).setValues([newRow]);
+    lookerSheet.getRange(2, 1, 1, 17).setValues([newRow]);
   } else {
     lookerSheet.appendRow(newRow);
   }
 
-  const newRowRange = lookerSheet.getRange(2, 1, 1, 16);
+  const newRowRange = lookerSheet.getRange(2, 1, 1, 17);
   newRowRange.setHorizontalAlignment('center').setBorder(true, true, true, true, true, true);
   lookerSheet.getRange(2, 9).setNumberFormat('@');
   lookerSheet.getRange(2, 6).setNumberFormat('yyyy/MM/dd');
-  lookerSheet.getRange(2, 16).setNumberFormat('yyyy/MM/dd HH:mm:ss');
+  lookerSheet.getRange(2, 17).setNumberFormat('yyyy/MM/dd HH:mm:ss');
   lookerSheet.getRange(2, 7, 1, 2).setNumberFormat('HH:mm');
 }
 
@@ -483,7 +483,7 @@ function updateApprovalStatus(sheet, row) {
 /**
  * 期間シートの承認をLooker Studio統合シートに同期する関数
  * 期間シート: D=メールアドレス(4), F=活動日(6), G=開始時間(7), K〜N=承認(11〜14)
- * 統合シート: B=メールアドレス(2), F=活動日(6), G=開始時間(7), K〜N=承認(11〜14), O=承認済み(15)
+ * 統合シート: B=メールアドレス(2), F=活動日(6), G=開始時間(7), L〜O=承認(12〜15), P=承認済み(16)
  */
 function syncApprovalToLookerStudio(periodSheet, row) {
   try {
@@ -522,7 +522,7 @@ function syncApprovalToLookerStudio(periodSheet, row) {
     const lookerLastRow = lookerSheet.getLastRow();
     if (lookerLastRow <= 1) return;
 
-    const lookerData = lookerSheet.getRange(2, 1, lookerLastRow - 1, 16).getValues();
+    const lookerData = lookerSheet.getRange(2, 1, lookerLastRow - 1, 17).getValues();
 
     for (let i = 0; i < lookerData.length; i++) {
       const lEmail = lookerData[i][1].toString().trim();  // B列: メールアドレス
@@ -543,8 +543,8 @@ function syncApprovalToLookerStudio(periodSheet, row) {
 
       if (lEmail === teacherEmail && lDate === activityDateStr && lStart === startTimeStr) {
         const targetRow = i + 2;
-        lookerSheet.getRange(targetRow, 11, 1, 4).setValues([[principal, business, vicePrincipal, headTeacher]]);
-        lookerSheet.getRange(targetRow, 15).setValue(allApproved ? '承認済み' : '');
+        lookerSheet.getRange(targetRow, 12, 1, 4).setValues([[principal, business, vicePrincipal, headTeacher]]);
+        lookerSheet.getRange(targetRow, 16).setValue(allApproved ? '承認済み' : '');
         break;
       }
     }
