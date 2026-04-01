@@ -611,34 +611,44 @@ function createLookerStudioSummary(selectedPeriod) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheets = ss.getSheets();
   
-  // Looker Studio用集計シートを作成
+  // 統一Looker Studio用集計シートを取得または作成
   let lookerSheet = ss.getSheetByName('Looker Studio用集計');
   if (!lookerSheet) {
     lookerSheet = ss.insertSheet('Looker Studio用集計');
+    
+    // ヘッダーを設定
+    lookerSheet.appendRow([
+      '教員名',
+      'メールアドレス',
+      '期間',
+      '活動日',
+      '開始時間',
+      '終了時間',
+      '勤務時間',
+      '報告事項',
+      '校長',
+      '事務長',
+      '副校長',
+      '教頭',
+      '承認済み',
+      '最終更新'
+    ]);
+    
+    // ヘッダーの書式設定
+    lookerSheet.getRange(1, 1, 1, 14)
+      .setFontWeight('bold')
+      .setBackground('#f3f3f3')
+      .setHorizontalAlignment('center')
+      .setBorder(true, true, true, true, true, true);
+    
+    // 列幅の設定
+    lookerSheet.setColumnWidths(1, 14, 150);
+  } else {
+    // 既存のデータをクリア（ヘッダー行は残す）
+    if (lookerSheet.getLastRow() > 1) {
+      lookerSheet.getRange(2, 1, lookerSheet.getLastRow() - 1, 14).clear();
+    }
   }
-
-  // ヘッダーを設定
-  lookerSheet.clear();
-  lookerSheet.appendRow([
-    '教員名',
-    'メールアドレス',
-    '期間',
-    '活動日',
-    '開始時間',
-    '終了時間',
-    '勤務時間',
-    '報告事項',
-    '最終更新'
-  ]);
-  
-  // ヘッダーの書式設定
-  lookerSheet.getRange(1, 1, 1, 9)
-    .setFontWeight('bold')
-    .setBackground('#f3f3f3')
-    .setHorizontalAlignment('center');
-  
-  // 列幅の設定
-  lookerSheet.setColumnWidths(1, 9, 150);
   
   // 選択された期間のシートを取得
   const periodSheet = sheets.find(sheet => sheet.getName() === selectedPeriod);
@@ -655,7 +665,7 @@ function createLookerStudioSummary(selectedPeriod) {
   }
   
   // データを取得
-  const data = periodSheet.getRange(2, 1, lastRow - 1, 9).getValues();
+  const data = periodSheet.getRange(2, 1, lastRow - 1, 14).getValues();
   const summaryData = [];
   
   data.forEach(row => {
@@ -666,6 +676,11 @@ function createLookerStudioSummary(selectedPeriod) {
       const startTime = row[5];     // 開始時間
       const endTime = row[6];       // 終了時間
       const reason = row[8];        // 報告事項
+      const principalApproval = row[9];    // 校長承認
+      const businessApproval = row[10];    // 事務長承認
+      const vicePrincipalApproval = row[11]; // 副校長承認
+      const headTeacherApproval = row[12];   // 教頭承認
+      const approvalStatus = row[13];        // 承認済み状態
       
       // 時間を分に変換
       const startMinutes = timeToMinutes(startTime);
@@ -692,6 +707,11 @@ function createLookerStudioSummary(selectedPeriod) {
         endTime,
         workTimeFormatted,
         reason,
+        principalApproval,
+        businessApproval,
+        vicePrincipalApproval,
+        headTeacherApproval,
+        approvalStatus,
         Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm:ss')
       ]);
     }
@@ -699,10 +719,10 @@ function createLookerStudioSummary(selectedPeriod) {
   
   // データを書き込み
   if (summaryData.length > 0) {
-    lookerSheet.getRange(2, 1, summaryData.length, 9).setValues(summaryData);
+    lookerSheet.getRange(2, 1, summaryData.length, 14).setValues(summaryData);
     
     // 書式の設定
-    lookerSheet.getRange(2, 1, summaryData.length, 9)
+    lookerSheet.getRange(2, 1, summaryData.length, 14)
       .setHorizontalAlignment('center')
       .setBorder(true, true, true, true, true, true);
     
@@ -711,15 +731,34 @@ function createLookerStudioSummary(selectedPeriod) {
     
     // 日付列の書式設定
     lookerSheet.getRange(2, 4, summaryData.length, 1).setNumberFormat('yyyy/MM/dd');
-    lookerSheet.getRange(2, 9, summaryData.length, 1).setNumberFormat('yyyy/MM/dd HH:mm:ss');
+    lookerSheet.getRange(2, 14, summaryData.length, 1).setNumberFormat('yyyy/MM/dd HH:mm:ss');
     
     // 時間列の書式設定
     lookerSheet.getRange(2, 5, summaryData.length, 2).setNumberFormat('HH:mm');
     
-    // フィルターを設定
-    lookerSheet.getRange(1, 1, 1, 9).createFilter();
+    // 承認列にチェックボックスを設定
+    lookerSheet.getRange(2, 9, summaryData.length, 4).insertCheckboxes();
     
-    SpreadsheetApp.getUi().alert(`Looker Studio用集計シートを更新しました。\n${summaryData.length}件のデータを処理しました。`);
+    // フィルターを設定 - 期間列でフィルターを設定し、選択期間を表示
+    lookerSheet.getRange(1, 1, lookerSheet.getLastRow(), 14).createFilter();
+    
+    // 期間列のフィルターを選択された期間に設定
+    try {
+      const filter = lookerSheet.getFilter();
+      if (filter) {
+        filter.setColumnFilterCriteria(3, SpreadsheetApp.newFilterCriteria()
+          .whenTextEqualTo(selectedPeriod)
+          .build());
+      }
+    } catch (e) {
+      Logger.log('フィルター設定エラー: ' + e.toString());
+      // フィルター設定に失敗しても処理を続行
+    }
+    
+    // アクティブなシートに設定
+    ss.setActiveSheet(lookerSheet);
+    
+    SpreadsheetApp.getUi().alert(`Looker Studio用集計シートを更新し、${selectedPeriod}のデータ(${summaryData.length}件)を表示しています。\n期間フィルターで他の期間も確認できます。`);
   } else {
     SpreadsheetApp.getUi().alert('有効なデータが見つかりませんでした。');
   }
@@ -787,10 +826,10 @@ function doOptions() {
 function updateLookerStudioSummary(period, data) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
-  // Looker Studio用集計シートを取得または作成
-  let lookerSheet = ss.getSheetByName('Looker Studio用集計');
+  // 統合Looker Studio用集計シートを取得または作成
+  let lookerSheet = ss.getSheetByName('Looker Studio用集計_統合');
   if (!lookerSheet) {
-    lookerSheet = ss.insertSheet('Looker Studio用集計');
+    lookerSheet = ss.insertSheet('Looker Studio用集計_統合');
     
     // ヘッダーを設定
     lookerSheet.appendRow([
@@ -845,11 +884,16 @@ function updateLookerStudioSummary(period, data) {
     Utilities.formatDate(timestamp, 'Asia/Tokyo', 'yyyy/MM/dd HH:mm:ss')
   ];
   
-  lookerSheet.appendRow(newRow);
+  // 2行目に挿入（新しいデータが上に表示されるように）
+  if (lookerSheet.getLastRow() > 1) {
+    lookerSheet.insertRowBefore(2);
+    lookerSheet.getRange(2, 1, 1, 9).setValues([newRow]);
+  } else {
+    lookerSheet.appendRow(newRow);
+  }
   
   // 追加した行の書式を設定
-  const lastRow = lookerSheet.getLastRow();
-  const newRowRange = lookerSheet.getRange(lastRow, 1, 1, 9);
+  const newRowRange = lookerSheet.getRange(2, 1, 1, 9);
   
   // 全体の書式設定
   newRowRange
@@ -857,17 +901,18 @@ function updateLookerStudioSummary(period, data) {
     .setBorder(true, true, true, true, true, true);
   
   // 数値列の書式設定
-  lookerSheet.getRange(lastRow, 7).setNumberFormat('@');
+  lookerSheet.getRange(2, 7).setNumberFormat('@');
   
   // 日付列の書式設定
-  lookerSheet.getRange(lastRow, 4).setNumberFormat('yyyy/MM/dd');
-  lookerSheet.getRange(lastRow, 9).setNumberFormat('yyyy/MM/dd HH:mm:ss');
+  lookerSheet.getRange(2, 4).setNumberFormat('yyyy/MM/dd');
+  lookerSheet.getRange(2, 9).setNumberFormat('yyyy/MM/dd HH:mm:ss');
   
   // 時間列の書式設定
-  lookerSheet.getRange(lastRow, 5, 1, 2).setNumberFormat('HH:mm');
+  lookerSheet.getRange(2, 5, 1, 2).setNumberFormat('HH:mm');
   
   Logger.log('Looker Studio用集計シートにデータを追加しました: ' + newRow.join(', '));
 }
+
 
 /**
  * 承認状態を更新する関数
