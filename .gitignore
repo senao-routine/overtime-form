@@ -36,3 +36,9 @@ firebase-debug.*.log*
 smooth-concept-457612-i4-efb1b20d6695.json
 *-service-account.json
 *-firebase-adminsdk-*.json
+
+# OS files
+.DS_Store
+
+# temporary files
+*.csv
