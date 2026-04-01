@@ -29,20 +29,20 @@ function getValidDateRange() {
   const today = new Date()
   const currentYear = today.getFullYear()
   const currentMonth = today.getMonth() // 0-11の値
-  
+
   // 今月の1日と月末を取得
   const currentMonthStart = new Date(currentYear, currentMonth, 1)
   const currentMonthEnd = new Date(currentYear, currentMonth + 1, 0) // 翌月の0日=当月末日
-  
+
   // 前月の22日
   const prevMonthDay22 = new Date(currentYear, currentMonth - 1, 22)
-  
+
   // 申請可能開始日: 前月の22日
   const startDate = prevMonthDay22
-  
+
   // 申請可能終了日: 当月末日
   const endDate = currentMonthEnd
-  
+
   return { startDate, endDate }
 }
 
@@ -133,11 +133,24 @@ export default function OvertimeForm() {
     },
   })
 
-  // 教員名が変更されたときにメールアドレスを更新
+  // 教員名をlocalStorageから復元
+  useEffect(() => {
+    const saved = localStorage.getItem("overtime_teacherName")
+    if (saved && teachers.length > 0) {
+      const found = teachers.find(t => t.name === saved)
+      if (found) {
+        form.setValue("teacherName", found.name)
+        setSelectedTeacherEmail(found.email)
+      }
+    }
+  }, [teachers])
+
+  // 教員名が変更されたときにメールアドレスを更新＆保存
   const handleTeacherChange = (value: string) => {
     const selectedTeacher = teachers.find(teacher => teacher.name === value)
     if (selectedTeacher) {
       setSelectedTeacherEmail(selectedTeacher.email)
+      localStorage.setItem("overtime_teacherName", value)
     } else {
       setSelectedTeacherEmail(null)
     }
@@ -151,10 +164,10 @@ export default function OvertimeForm() {
     try {
       // Google Apps ScriptウェブアプリのURL - 実際のURLに置き換えてください
       const apiUrl = "https://script.google.com/macros/s/AKfycbxR21RCZBM7rLsS6f91VPpXwffPjw2l1Hqp0TznxImvyR2bLacVUxOqkRScbzX_0v-_Ag/exec";
-      
+
       // データを整形
       const dateFormatted = format(values.activityDate, "yyyy/MM/dd");
-      
+
       // 勤務時間を計算
       const startTimeParts = values.startTime.split(":");
       const endTimeParts = values.endTime.split(":");
@@ -162,14 +175,14 @@ export default function OvertimeForm() {
       const endMinutes = parseInt(endTimeParts[0]) * 60 + parseInt(endTimeParts[1]);
       const totalMinutes = endMinutes - startMinutes;
       const hourCount = (totalMinutes / 60).toFixed(1);
-      
+
       // 教員のメールアドレスを取得
       const selectedTeacher = teachers.find(teacher => teacher.name === values.teacherName);
       const teacherEmail = selectedTeacher?.email || "";
-      
+
       console.log("選択された教員:", selectedTeacher);
       console.log("メールアドレス:", teacherEmail);
-      
+
       // 申請種類のラベルを取得
       const appType = applicationTypes.find(t => t.id === values.applicationType);
       const appTypeName = appType?.name || values.applicationType;
@@ -189,7 +202,7 @@ export default function OvertimeForm() {
       // デバッグ情報をコンソールに表示
       console.log("送信データ:", formData);
       console.log("送信先URL:", apiUrl);
-      
+
       // データをJSON文字列に変換
       const jsonData = JSON.stringify(formData);
       console.log("JSON文字列:", jsonData);
@@ -207,14 +220,14 @@ export default function OvertimeForm() {
 
         const response = await fetch(apiUrl, fetchOptions);
         console.log("直接送信レスポンス:", response);
-        
+
         if (response.ok) {
           const responseData = await response.json();
           console.log("レスポンスデータ:", responseData);
         }
       } catch (fetchError) {
         console.warn("直接送信に失敗しました。no-corsモードで再試行します:", fetchError);
-        
+
         // フォールバック: no-corsモードで送信
         const fallbackOptions = {
           method: "POST",
@@ -224,7 +237,7 @@ export default function OvertimeForm() {
           body: jsonData,
           mode: "no-cors" as RequestMode
         };
-        
+
         await fetch(apiUrl, fallbackOptions);
         console.log("no-corsモードで送信完了");
       }
@@ -251,65 +264,74 @@ export default function OvertimeForm() {
     }
   }
 
+  // Shared style tokens
+  const labelClass = "text-sm font-semibold text-stone-700"
+  const selectTriggerClass = "form-input-base h-11 rounded-md px-3 text-sm"
+  const selectContentClass = "bg-white rounded-md shadow-lg border border-stone-200"
+  const timeInputClass = "form-input-base h-11 rounded-md text-sm"
+
   return (
     <>
       {isLoading && (
-        <div className="text-center text-muted-foreground text-sm py-2">データを読み込み中...</div>
+        <div className="text-center text-stone-400 text-sm py-3">データを読み込み中...</div>
       )}
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          <div className="space-y-6">
-            <FormField
-              control={form.control}
-              name="applicationType"
-              render={({ field }) => (
-                <FormItem className="transition-all duration-200 hover:translate-y-[-2px]">
-                  <FormLabel className="text-foreground/90 font-medium">申請種類</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="rounded-lg border-input focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200">
-                        <SelectValue placeholder="申請種類を選択してください" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent className="bg-white/80 backdrop-blur-sm rounded-lg">
-                      <SelectGroup>
-                        {applicationTypes.map((type) => (
-                          <SelectItem
-                            key={type.id}
-                            value={type.id}
-                            className="cursor-pointer hover:bg-accent/20 transition-colors"
-                          >
-                            {type.name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-7">
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Section: 申請種類 */}
+          <FormField
+            control={form.control}
+            name="applicationType"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className={labelClass}>申請種類</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger className={selectTriggerClass}>
+                      <SelectValue placeholder="申請種類を選択してください" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent className={selectContentClass}>
+                    <SelectGroup>
+                      {applicationTypes.map((type) => (
+                        <SelectItem
+                          key={type.id}
+                          value={type.id}
+                          className="cursor-pointer text-sm"
+                        >
+                          {type.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Section: 教員 / クラブ */}
+          <div className="space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <FormField
                 control={form.control}
                 name="teacherName"
                 render={({ field }) => (
-                  <FormItem className="transition-all duration-200 hover:translate-y-[-2px]">
-                    <FormLabel className="text-foreground/90 font-medium">教員名</FormLabel>
+                  <FormItem>
+                    <FormLabel className={labelClass}>教員名</FormLabel>
                     <Select onValueChange={handleTeacherChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger className="rounded-lg border-input focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200">
+                        <SelectTrigger className={selectTriggerClass}>
                           <SelectValue placeholder="教員を選択してください" />
                         </SelectTrigger>
                       </FormControl>
-                      <SelectContent className="max-h-[300px] overflow-auto bg-white/80 backdrop-blur-sm rounded-lg">
+                      <SelectContent className={cn(selectContentClass, "max-h-[300px] overflow-auto")}>
                         <SelectGroup>
                           {teachers.map((teacher, index) => (
-                            <SelectItem 
-                              key={teacher.id} 
+                            <SelectItem
+                              key={teacher.id}
                               value={teacher.name}
-                              className="cursor-pointer hover:bg-accent/20 transition-colors"
+                              className="cursor-pointer text-sm"
                             >
                               {`${index + 1}. ${teacher.name}`}
                             </SelectItem>
@@ -318,8 +340,8 @@ export default function OvertimeForm() {
                       </SelectContent>
                     </Select>
                     {selectedTeacherEmail && (
-                      <div className="mt-2 text-sm flex items-center text-muted-foreground">
-                        <Mail className="h-4 w-4 mr-1" />
+                      <div className="mt-1.5 text-xs flex items-center gap-1.5 text-stone-400">
+                        <Mail className="h-3.5 w-3.5 shrink-0" />
                         <span>{selectedTeacherEmail}</span>
                       </div>
                     )}
@@ -333,24 +355,24 @@ export default function OvertimeForm() {
                   control={form.control}
                   name="clubName"
                   render={({ field }) => (
-                    <FormItem className="transition-all duration-200 hover:translate-y-[-2px]">
-                      <FormLabel className="text-foreground/90 font-medium">クラブ名</FormLabel>
+                    <FormItem>
+                      <FormLabel className={labelClass}>クラブ名</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger className="rounded-lg border-input focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200">
+                          <SelectTrigger className={selectTriggerClass}>
                             <SelectValue placeholder="クラブを選択してください" />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent className="max-h-[300px] overflow-auto bg-white/80 backdrop-blur-sm rounded-lg">
+                        <SelectContent className={cn(selectContentClass, "max-h-[300px] overflow-auto")}>
                           <SelectGroup>
-                            <SelectLabel className="px-2 py-1.5 text-sm font-semibold">高校</SelectLabel>
+                            <SelectLabel className="px-2 py-1.5 text-xs font-semibold text-stone-500 uppercase tracking-wider">高校</SelectLabel>
                             {clubs
                               .filter(club => club.name.startsWith("高:"))
                               .map(club => (
                                 <SelectItem
                                   key={club.id}
                                   value={club.name}
-                                  className="cursor-pointer hover:bg-accent/20 transition-colors"
+                                  className="cursor-pointer text-sm"
                                 >
                                   {club.name}
                                 </SelectItem>
@@ -358,14 +380,14 @@ export default function OvertimeForm() {
                             }
                           </SelectGroup>
                           <SelectGroup>
-                            <SelectLabel className="px-2 py-1.5 text-sm font-semibold">中学校</SelectLabel>
+                            <SelectLabel className="px-2 py-1.5 text-xs font-semibold text-stone-500 uppercase tracking-wider">中学校</SelectLabel>
                             {clubs
                               .filter(club => club.name.startsWith("中:"))
                               .map(club => (
                                 <SelectItem
                                   key={club.id}
                                   value={club.name}
-                                  className="cursor-pointer hover:bg-accent/20 transition-colors"
+                                  className="cursor-pointer text-sm"
                                 >
                                   {club.name}
                                 </SelectItem>
@@ -380,21 +402,24 @@ export default function OvertimeForm() {
                 />
               )}
             </div>
+          </div>
 
+          {/* Section: 日付・時間 */}
+          <div className="space-y-5">
             <FormField
               control={form.control}
               name="activityDate"
               render={({ field }) => (
-                <FormItem className="flex flex-col transition-all duration-200 hover:translate-y-[-2px]">
-                  <FormLabel className="text-foreground/90 font-medium">活動日</FormLabel>
+                <FormItem className="flex flex-col">
+                  <FormLabel className={labelClass}>活動日</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button
                           variant={"outline"}
                           className={cn(
-                            "w-full pl-3 text-left font-normal rounded-lg border-input hover:bg-accent/10 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200", 
-                            !field.value && "text-muted-foreground"
+                            "form-input-base w-full h-11 pl-3 text-left font-normal text-sm justify-between",
+                            !field.value && "text-stone-400"
                           )}
                         >
                           {field.value ? (
@@ -402,11 +427,11 @@ export default function OvertimeForm() {
                           ) : (
                             <span>日付を選択してください</span>
                           )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          <CalendarIcon className="h-4 w-4 text-stone-400" />
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 rounded-lg shadow-lg border-0 glass-morphism" align="start">
+                    <PopoverContent className="w-auto p-0 rounded-md shadow-lg border border-stone-200" align="start">
                       <Calendar
                         mode="single"
                         selected={field.value}
@@ -414,34 +439,33 @@ export default function OvertimeForm() {
                         disabled={(date) => date < startDate || date > endDate}
                         initialFocus
                         locale={ja}
-                        className="rounded-lg"
+                        className="rounded-md"
                       />
                     </PopoverContent>
                   </Popover>
-                  <FormDescription className="text-muted-foreground text-sm">
+                  <FormDescription className="text-xs text-stone-400 mt-1.5">
                     申請期間: {format(startDate, "yyyy年MM月dd日")}（前月22日）から{format(endDate, "yyyy年MM月dd日")}（当月末）
-                    までの期間で選択してください。
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-5">
               <FormField
                 control={form.control}
                 name="startTime"
                 render={({ field }) => (
-                  <FormItem className="transition-all duration-200 hover:translate-y-[-2px]">
-                    <FormLabel className="text-foreground/90 font-medium">業務開始時間</FormLabel>
+                  <FormItem>
+                    <FormLabel className={labelClass}>業務開始時間</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Input 
-                          type="time" 
-                          {...field} 
-                          className="rounded-lg border-input focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
+                        <Input
+                          type="time"
+                          {...field}
+                          className={timeInputClass}
                         />
-                        <Clock className="absolute right-3 top-2.5 h-4 w-4 opacity-50" />
+                        <Clock className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -453,16 +477,16 @@ export default function OvertimeForm() {
                 control={form.control}
                 name="endTime"
                 render={({ field }) => (
-                  <FormItem className="transition-all duration-200 hover:translate-y-[-2px]">
-                    <FormLabel className="text-foreground/90 font-medium">業務終了時間</FormLabel>
+                  <FormItem>
+                    <FormLabel className={labelClass}>業務終了時間</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Input 
-                          type="time" 
-                          {...field} 
-                          className="rounded-lg border-input focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200" 
+                        <Input
+                          type="time"
+                          {...field}
+                          className={timeInputClass}
                         />
-                        <Clock className="absolute right-3 top-2.5 h-4 w-4 opacity-50" />
+                        <Clock className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -470,42 +494,46 @@ export default function OvertimeForm() {
                 )}
               />
             </div>
-
-            <FormField
-              control={form.control}
-              name="report"
-              render={({ field }) => (
-                <FormItem className="transition-all duration-200 hover:translate-y-[-2px]">
-                  <FormLabel className="text-foreground/90 font-medium">活動に関する報告事項</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="活動内容や特記事項があれば入力してください。"
-                      className="resize-none rounded-lg border-input min-h-[120px] focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200"
-                      rows={4}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
           </div>
 
-          <Button 
-            type="submit" 
-            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 rounded-lg py-6 font-medium text-lg shadow-md hover:shadow-lg transform transition-all duration-200 hover:translate-y-[-2px] hover:shadow-primary/20 disabled:opacity-70 disabled:hover:translate-y-0"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <div className="flex items-center justify-center">
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                送信中...
-              </div>
-            ) : "申請を送信する"}
-          </Button>
+          {/* Section: 報告 */}
+          <FormField
+            control={form.control}
+            name="report"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className={labelClass}>活動に関する報告事項</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="活動内容や特記事項があれば入力してください。"
+                    className="form-input-base resize-none min-h-[120px] rounded-md text-sm leading-relaxed px-3 py-2.5"
+                    rows={4}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Submit */}
+          <div className="pt-2">
+            <Button
+              type="submit"
+              className="w-full h-12 bg-[var(--color-primary)] hover:bg-[var(--color-primary-light)] text-white rounded-md font-semibold text-sm tracking-wide shadow-none transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  送信中...
+                </span>
+              ) : "申請を送信する"}
+            </Button>
+          </div>
         </form>
       </Form>
       <Toaster />
