@@ -15,7 +15,7 @@ export default function Home() {
               花園中学高等学校
             </p>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-              教員時間外勤務申請フォーム
+              時間外勤務申請フォーム
             </h1>
             <div className="mt-3 w-10 h-1 rounded-full bg-[var(--color-accent)]" />
           </div>

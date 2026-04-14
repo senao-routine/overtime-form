@@ -20,9 +20,33 @@ import { Toaster } from "@/components/ui/toaster"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { teachers as fallbackTeachers, clubs as fallbackClubs } from "@/lib/data/lists"
 
-type Teacher = { id: string; name: string; email: string }
+type UserType = "teacher" | "staff"
+type Person = { id: string; name: string; email: string }
 type Club = { id: string; name: string }
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command"
+
+// GAS URLの設定
+const GAS_URLS: Record<UserType, string> = {
+  teacher: "https://script.google.com/macros/s/AKfycbxSg9KYbkmcO6vlOR_flM-0xFuYdkMK4nask84P0-x9fRQCFnyctC2RH-UxQoHcR1vX/exec",
+  staff: "https://script.google.com/macros/s/AKfycbyWJV4STMvd6wErglhKXuMQtyhbUoLKvZAFgFx-Dq699em59oOYOTeVw-QpN12q0dqILg/exec",
+}
+
+const USER_TYPE_LABELS: Record<UserType, { title: string; nameLabel: string; namePlaceholder: string; storageKey: string; masterType: string }> = {
+  teacher: {
+    title: "教員",
+    nameLabel: "教員名",
+    namePlaceholder: "教員を選択してください",
+    storageKey: "overtime_teacherName",
+    masterType: "teachers",
+  },
+  staff: {
+    title: "職員",
+    nameLabel: "職員名",
+    namePlaceholder: "職員を選択してください",
+    storageKey: "overtime_staffName",
+    masterType: "staff",
+  },
+}
 
 // 日付の範囲を取得する関数
 function getValidDateRange() {
@@ -61,7 +85,7 @@ const formSchema = z.object({
     message: "申請種類を選択してください。",
   }),
   teacherName: z.string().min(1, {
-    message: "教員名を選択してください。",
+    message: "氏名を選択してください。",
   }),
   clubName: z.string().optional(),
   activityDate: z
@@ -88,24 +112,33 @@ function formatWorkingTime(minutes: number): string {
 }
 
 export default function OvertimeForm() {
+  const [userType, setUserType] = useState<UserType>(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("overtime_userType") as UserType) || "teacher"
+    }
+    return "teacher"
+  })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedTeacherEmail, setSelectedTeacherEmail] = useState<string | null>(null)
-  const [teachers, setTeachers] = useState<Teacher[]>(fallbackTeachers)
+  const [people, setPeople] = useState<Person[]>(fallbackTeachers)
   const [clubs, setClubs] = useState<Club[]>(fallbackClubs)
   const [isLoading, setIsLoading] = useState(true)
 
+  const labels = USER_TYPE_LABELS[userType]
+
   useEffect(() => {
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxSg9KYbkmcO6vlOR_flM-0xFuYdkMK4nask84P0-x9fRQCFnyctC2RH-UxQoHcR1vX/exec"
+    const GAS_URL = GAS_URLS[userType]
 
     async function fetchMasterData() {
+      setIsLoading(true)
       try {
-        const [teachersRes, clubsRes] = await Promise.all([
-          fetch(`${GAS_URL}?type=teachers`),
+        const [peopleRes, clubsRes] = await Promise.all([
+          fetch(`${GAS_URL}?type=${labels.masterType}`),
           fetch(`${GAS_URL}?type=clubs`),
         ])
-        if (teachersRes.ok) {
-          const data = await teachersRes.json()
-          if (data.length > 0) setTeachers(data)
+        if (peopleRes.ok) {
+          const data = await peopleRes.json()
+          if (data.length > 0) setPeople(data)
         }
         if (clubsRes.ok) {
           const data = await clubsRes.json()
@@ -113,12 +146,13 @@ export default function OvertimeForm() {
         }
       } catch (error) {
         console.error("マスタデータ取得エラー:", error)
+        if (userType === "teacher") setPeople(fallbackTeachers)
       } finally {
         setIsLoading(false)
       }
     }
     fetchMasterData()
-  }, [])
+  }, [userType])
 
   // フォームの初期化
   const form = useForm<z.infer<typeof formSchema>>({
@@ -133,24 +167,24 @@ export default function OvertimeForm() {
     },
   })
 
-  // 教員名をlocalStorageから復元
+  // 名前をlocalStorageから復元
   useEffect(() => {
-    const saved = localStorage.getItem("overtime_teacherName")
-    if (saved && teachers.length > 0) {
-      const found = teachers.find(t => t.name === saved)
+    const saved = localStorage.getItem(labels.storageKey)
+    if (saved && people.length > 0) {
+      const found = people.find((p: Person) => p.name === saved)
       if (found) {
         form.setValue("teacherName", found.name)
         setSelectedTeacherEmail(found.email)
       }
     }
-  }, [teachers])
+  }, [people])
 
-  // 教員名が変更されたときにメールアドレスを更新＆保存
+  // 名前が変更されたときにメールアドレスを更新＆保存
   const handleTeacherChange = (value: string) => {
-    const selectedTeacher = teachers.find(teacher => teacher.name === value)
-    if (selectedTeacher) {
-      setSelectedTeacherEmail(selectedTeacher.email)
-      localStorage.setItem("overtime_teacherName", value)
+    const selected = people.find((p: Person) => p.name === value)
+    if (selected) {
+      setSelectedTeacherEmail(selected.email)
+      localStorage.setItem(labels.storageKey, value)
     } else {
       setSelectedTeacherEmail(null)
     }
@@ -162,8 +196,7 @@ export default function OvertimeForm() {
     setIsSubmitting(true)
 
     try {
-      // Google Apps ScriptウェブアプリのURL - 実際のURLに置き換えてください
-      const apiUrl = "https://script.google.com/macros/s/AKfycbxSg9KYbkmcO6vlOR_flM-0xFuYdkMK4nask84P0-x9fRQCFnyctC2RH-UxQoHcR1vX/exec";
+      const apiUrl = GAS_URLS[userType];
 
       // データを整形
       const dateFormatted = format(values.activityDate, "yyyy/MM/dd");
@@ -176,11 +209,11 @@ export default function OvertimeForm() {
       const totalMinutes = endMinutes - startMinutes;
       const hourCount = (totalMinutes / 60).toFixed(1);
 
-      // 教員のメールアドレスを取得
-      const selectedTeacher = teachers.find(teacher => teacher.name === values.teacherName);
-      const teacherEmail = selectedTeacher?.email || "";
+      // メールアドレスを取得
+      const selectedPerson = people.find((p: Person) => p.name === values.teacherName);
+      const teacherEmail = selectedPerson?.email || "";
 
-      console.log("選択された教員:", selectedTeacher);
+      console.log("選択された人:", selectedPerson);
       console.log("メールアドレス:", teacherEmail);
 
       // 申請種類のラベルを取得
@@ -275,6 +308,30 @@ export default function OvertimeForm() {
       {isLoading && (
         <div className="text-center text-stone-400 text-sm py-3">データを読み込み中...</div>
       )}
+      {/* 教員 / 職員 切り替え */}
+      <div className="flex rounded-lg border border-stone-200 overflow-hidden mb-6">
+        {(["teacher", "staff"] as UserType[]).map((type) => (
+          <button
+            key={type}
+            type="button"
+            onClick={() => {
+              setUserType(type)
+              localStorage.setItem("overtime_userType", type)
+              form.reset()
+              setSelectedTeacherEmail(null)
+            }}
+            className={cn(
+              "flex-1 py-2.5 text-sm font-semibold transition-colors duration-150",
+              userType === type
+                ? "bg-[var(--color-primary)] text-white"
+                : "bg-white text-stone-500 hover:bg-stone-50"
+            )}
+          >
+            {USER_TYPE_LABELS[type].title}
+          </button>
+        ))}
+      </div>
+
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-7">
 
@@ -310,7 +367,7 @@ export default function OvertimeForm() {
             )}
           />
 
-          {/* Section: 教員 / クラブ */}
+          {/* Section: 名前 / クラブ */}
           <div className="space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <FormField
@@ -318,22 +375,22 @@ export default function OvertimeForm() {
                 name="teacherName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className={labelClass}>教員名</FormLabel>
+                    <FormLabel className={labelClass}>{labels.nameLabel}</FormLabel>
                     <Select onValueChange={handleTeacherChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger className={selectTriggerClass}>
-                          <SelectValue placeholder="教員を選択してください" />
+                          <SelectValue placeholder={labels.namePlaceholder} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent className={cn(selectContentClass, "max-h-[300px] overflow-auto")}>
                         <SelectGroup>
-                          {teachers.map((teacher, index) => (
+                          {people.map((person: Person, index: number) => (
                             <SelectItem
-                              key={teacher.id}
-                              value={teacher.name}
+                              key={person.id}
+                              value={person.name}
                               className="cursor-pointer text-sm"
                             >
-                              {`${index + 1}. ${teacher.name}`}
+                              {`${index + 1}. ${person.name}`}
                             </SelectItem>
                           ))}
                         </SelectGroup>
