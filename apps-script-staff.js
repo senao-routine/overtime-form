@@ -360,6 +360,9 @@ function sendConfirmationEmail(info) {
     '',
     `申請日時：${info.timestamp}`,
     '',
+    '承認状況はLooker Studioダッシュボードから確認できます。',
+    'https://lookerstudio.google.com/reporting/2b27116a-81e5-49d0-9a01-88fe584d7f1c/page/kmvtF',
+    '',
     '※このメールは自動送信です。',
   ].filter(line => line !== null).join('\n');
 

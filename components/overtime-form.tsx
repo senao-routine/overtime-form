@@ -28,7 +28,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 // GAS URLの設定
 const GAS_URLS: Record<UserType, string> = {
   teacher: "https://script.google.com/macros/s/AKfycbxSg9KYbkmcO6vlOR_flM-0xFuYdkMK4nask84P0-x9fRQCFnyctC2RH-UxQoHcR1vX/exec",
-  staff: "https://script.google.com/macros/s/AKfycbyWJV4STMvd6wErglhKXuMQtyhbUoLKvZAFgFx-Dq699em59oOYOTeVw-QpN12q0dqILg/exec",
+  staff: "https://script.google.com/macros/s/AKfycbzoerLJXDo4NlTceKiD8t3FvQ1hDew2JX1Nn8zCyeHxZfAe7ZGoV4m9yP8j_1pcShyNsA/exec",
 }
 
 const USER_TYPE_LABELS: Record<UserType, { title: string; nameLabel: string; namePlaceholder: string; storageKey: string; masterType: string }> = {
